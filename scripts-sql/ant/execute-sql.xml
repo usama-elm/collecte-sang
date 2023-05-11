@@ -1,0 +1,190 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- ====================================================================== 
+     avril 2021                                                       
+
+     sql-projet-dev-appli
+                   
+     ====================================================================== -->
+<project name="sql-projet-dev-appli" >
+
+	
+    <!-- ================================= 
+          Paramètres généraux              
+         ================================= -->
+
+	<property file="execute-sql.properties" />
+	
+	<property name="dir.bin" location="." />
+	<property name="dir.sql" location=".." />
+	<property name="dir.lib" location="../../../~lib" />
+
+	<property name="exe.elevate" location="${dir.bin}/elevate.exe" />
+	
+	<property name="dir.driver" location="${dir.lib}/postgresql" />
+	<path id="classpath.grdle-wrapper" path="${dir.lib}/gradle-wrapper/gradle-wrapper.jar" />
+	
+	<path id="classpath.jdbc.driver" >
+		<fileset dir="${dir.driver}" />
+	</path>
+	
+	<mkdir dir="${dir.driver}"/>
+	<available classname="${jdbc.driver}" classpathref="classpath.jdbc.driver"  
+			property="flag.driver.ok" />
+
+
+    <!-- ================================= 
+          target: 0-user              
+         ================================= -->
+    <target name="0-user" depends="get-driver" description="Crée l'utilisateur">
+    	<execute-sql sqlfile="${dir.sql}/0-user.sql" 
+    		user="${admin.user}" password="${admin.password}"
+    		delimiter="/"
+    />
+    </target>
+	
+
+    <!-- ================================= 
+          target: 1-tables              
+         ================================= -->
+    <target name="1-tables" depends="get-driver" description="Crée talbes, séquences et vues">
+    	<execute-sql sqlfile="${dir.sql}/1-tables.sql"/>
+    </target>
+	
+
+    <!-- ================================= 
+          target: 2-data              
+         ================================= -->
+    <target name="2-data" depends="get-driver" description="Insère données initiales">
+    	<execute-sql sqlfile="${dir.sql}/2-data.sql"/>
+    </target>
+	
+
+    <!-- ================================= 
+          target: 3-procedures              
+         ================================= -->
+    <target name="3-procedures" depends="get-driver" description="Crée triggers et procédures stockées">
+    	<execute-sql sqlfile="${dir.sql}/3-procedures.sql" delimiter="/" />
+    </target>
+	
+
+    <!-- ================================= 
+          target: 9-tout              
+         ================================= -->
+    <target name="9-tout" description="Exécute les cibles 1,2 et 3">
+    	
+    	<antcall target="1-tables" />
+		<antcall target="2-data" />
+		<antcall target="3-procedures" />
+        
+    </target>
+	
+	
+	<!-- = = = = = = = = = = = = = = = = =
+          macrodef: execute-sql          
+         = = = = = = = = = = = = = = = = = -->
+    <macrodef name="execute-sql">
+        <attribute  name="sqlfile"  />
+        <attribute  name="delimiter" default=";"  />
+        <attribute  name="user" default="${appli.user}"  />
+        <attribute  name="password" default="${appli.password}"  />
+        <sequential>
+        	
+        	<local name="delimitertype" />
+        	<local name="strictDelimiterMatching" />
+        	<condition property="delimitertype" value="normal" else="row" >
+				<equals arg1="@{delimiter}" arg2=";"/>
+        	</condition>
+        	<condition property="strictDelimiterMatching" value="true" else="false" >
+				<equals arg1="@{delimiter}" arg2=";"/>
+        	</condition>
+        	
+        	<sql 
+        		src="@{sqlfile}"
+        		userid="@{user}" 
+        		url="${jdbc.url}" 
+        		password="@{password}" 
+        		driver="${jdbc.driver}" 
+        		delimiter="@{delimiter}"
+        		delimitertype="${delimitertype}"
+        		strictDelimiterMatching="${strictDelimiterMatching}"
+        		autocommit="true"
+        		encoding="UTF-8"
+        		onerror="continue"
+    			classpathref="classpath.jdbc.driver"
+        	/>
+            
+        </sequential>
+    </macrodef>
+	
+
+    <!-- ================================= 
+          target: start              
+         ================================= -->
+    <target name="start" description="Starts the service">
+    	<exec executable="${exe.elevate}">
+    		<arg value="NET"/>
+    		<arg value="START"/>
+    		<arg value="${service.name}" />	
+    	</exec>
+    </target>
+	
+
+    <!-- ================================= 
+          target: stop             
+         ================================= -->
+    <target name="stop" description="Stops the service">
+    	<exec executable="${exe.elevate}">
+    		<arg value="NET"/>
+    		<arg value="STOP"/>
+    		<arg value="${service.name}" />	
+    	</exec>
+    </target>
+	
+
+	<!-- = = = = = = = = = = = = = = = = =
+          target: config-start            
+         = = = = = = = = = = = = = = = = = -->
+    <target name="config-start" >
+    	<exec executable="${exe.elevate}">
+    		<arg value="SC"/>
+    		<arg value="CONFIG"/>
+    		<arg value="${service.name}" />	
+    		<arg value="START=DEMAND"/>
+    	</exec>
+    </target>
+	
+
+	<!-- = = = = = = = = = = = = = = = = =
+          target: get-driver             
+         = = = = = = = = = = = = = = = = = -->
+    <target name="get-driver" unless="flag.driver.ok">
+    	
+    	<delete dir="${dir.driver}" />
+    	<gradle>
+    		<arg value="copyDriver" />
+    		<arg value="-PmoduleDriver=${driver.module}" />
+    		<arg value="-PpathDirDriver=${dir.driver}" />
+    	</gradle>
+    </target>
+
+	
+	<!-- = = = = = = = = = = = = = = = = =
+          macrodef: gradle          
+         = = = = = = = = = = = = = = = = = -->
+	<macrodef name="gradle">
+		<attribute name="dir" default="${dir.bin}" />
+		<element name="args" implicit="true" />
+		<sequential>
+	    	<java fork="true" 
+	    		classname="org.gradle.wrapper.GradleWrapperMain" 
+	    		classpathref="classpath.grdle-wrapper"
+	    		dir="@{dir}"
+	    	>
+	    		<args />
+	    		<jvmarg value="-Xmx64m"/>
+	    		<jvmarg value="-Xms64m"/>
+	    	</java>
+		</sequential>
+	</macrodef>
+
+</project>

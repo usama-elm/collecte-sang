@@ -1,0 +1,22 @@
+
+plugins {
+    id 'java'
+}
+
+repositories {
+    jcenter()
+}
+
+configurations {
+    driver
+}
+
+dependencies {
+	driver moduleDriver
+}
+
+task copyDriver(type: Copy) {
+	from configurations.driver
+	into pathDirDriver
+}
+

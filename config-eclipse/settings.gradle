@@ -1,0 +1,8 @@
+pluginManagement {
+  plugins {
+    id 'org.openjfx.javafxplugin'  version '0.0.9'
+  }
+} 
+
+include ':JFox'
+project(':JFox').projectDir = new File(settingsDir, '../JFox')
